@@ -15,6 +15,9 @@ class Config:
     raw_dir: str
     photos_dir: str
     result_limit: int
+    log_dir: str
+    agent_max_iters: int
+    history_max_turns: int
 
 
 def load_config() -> Config:
@@ -27,4 +30,7 @@ def load_config() -> Config:
         raw_dir=os.environ.get("RAW_DIR", "data/raw"),
         photos_dir=os.environ.get("PHOTOS_DIR", "data/raw/photos"),
         result_limit=int(os.environ.get("RESULT_LIMIT", "5")),
+        log_dir=os.environ.get("LOG_DIR", "data/logs"),
+        agent_max_iters=int(os.environ.get("AGENT_MAX_ITERS", "4")),
+        history_max_turns=int(os.environ.get("HISTORY_MAX_TURNS", "6")),
     )

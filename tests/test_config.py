@@ -8,3 +8,6 @@ def test_load_config_defaults(monkeypatch):
     assert cfg.chat_model == "gpt-4o-mini"
     assert cfg.stt_model == "whisper-1"
     assert cfg.result_limit == 5
+    assert cfg.log_dir == "data/logs"
+    assert cfg.agent_max_iters == 4
+    assert cfg.history_max_turns == 6
