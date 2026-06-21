@@ -56,6 +56,7 @@ async def handle_voice(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def main() -> None:
     cfg = load_config()
     conn = database.connect(cfg.db_path)
+    database.init_db(conn)
     app = Application.builder().token(cfg.telegram_bot_token).build()
     app.bot_data.update({
         "cfg": cfg, "conn": conn, "client": OpenAI(api_key=cfg.openai_api_key),

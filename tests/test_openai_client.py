@@ -34,3 +34,9 @@ def test_transcribe(tmp_path):
     text = openai_client.transcribe(str(p), client, "whisper-1")
     assert text == "hello world"
     assert client.tr_args == {"model": "whisper-1", "has_file": True}
+
+def test_system_prompt_lists_canonical_districts():
+    from bot.openai_client import SYSTEM_PROMPT
+    from processor.normalize import YEREVAN_DISTRICTS
+    for d in YEREVAN_DISTRICTS:
+        assert d in SYSTEM_PROMPT
