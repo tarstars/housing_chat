@@ -64,6 +64,7 @@ def run(messages: list, conn, client, model: str, max_iters: int = 4) -> AgentRe
                 listings = result.get("listings", [])
                 surfaced = listings[:5]
                 if not listings:
+                    # run-scoped flag: True if ANY search this turn returned nothing
                     tel["empty_search"] = True
             elif name == "get_listing":
                 listing = result.get("listing")

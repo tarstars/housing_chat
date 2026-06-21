@@ -31,6 +31,7 @@ def test_aggregate_count_and_avg():
     assert tools.aggregate_stats(conn, filters={"district": "Kentron"}, metric="count")["value"] == 2
     assert tools.aggregate_stats(conn, metric="min_price")["value"] == 200000
     assert tools.aggregate_stats(conn, metric="max_price")["value"] == 500000
+    assert tools.aggregate_stats(conn, metric="avg_price")["value"] == 333333.3
 
 def test_aggregate_group_by_district():
     conn = seed()

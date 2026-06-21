@@ -132,6 +132,7 @@ def main() -> None:
     cfg = load_config()
     rw = database.connect(cfg.db_path)
     database.init_db(rw)              # ensure schema exists
+    rw.close()
     ro = database.connect_ro(cfg.db_path)
     app = Application.builder().token(cfg.telegram_bot_token).build()
     app.bot_data.update({
