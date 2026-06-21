@@ -97,12 +97,22 @@ async def handle_text(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def handle_voice(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     data = context.application.bot_data
+    cfg = data["cfg"]
+    chat_id = update.effective_chat.id
+    t0 = time.time()
     tg_file = await update.message.voice.get_file()
     fd, path = tempfile.mkstemp(suffix=".oga")
     os.close(fd)
     try:
         await tg_file.download_to_drive(path)
-        text = transcribe(path, data["client"], data["cfg"].stt_model)
+        text = transcribe(path, data["client"], cfg.stt_model)
+    except Exception as e:
+        log.exception("transcription failed")
+        await update.message.reply_text("Sorry, I couldn't understand that voice message. Please try again.")
+        record = interaction_log.build_record(
+            chat_id, "voice", "", {}, [], "error", str(e), int((time.time() - t0) * 1000))
+        interaction_log.log_interaction(cfg.log_dir, record)
+        return
     finally:
         os.unlink(path)
     await _handle(update, context, text, "voice")
