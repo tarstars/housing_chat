@@ -2,7 +2,7 @@ import os
 import tempfile
 
 from openai import OpenAI
-from telegram import InputMediaPhoto
+from telegram import InputMediaPhoto, Update
 from telegram.ext import (
     Application, ContextTypes, MessageHandler, filters as tg_filters,
 )
@@ -14,14 +14,19 @@ from bot.openai_client import transcribe
 from bot.format import format_no_results
 
 
-async def _send_results(update, results: list[dict]) -> None:
+async def _send_results(update: Update, results: list[dict]) -> None:
     if not results:
         await update.message.reply_text(format_no_results())
         return
     for r in results:
         if r["photos"]:
-            media = [InputMediaPhoto(open(p, "rb")) for p in r["photos"]]
-            await update.message.reply_media_group(media=media, caption=r["text"])
+            handles = [open(p, "rb") for p in r["photos"]]
+            try:
+                media = [InputMediaPhoto(fh) for fh in handles]
+                await update.message.reply_media_group(media=media, caption=r["text"])
+            finally:
+                for fh in handles:
+                    fh.close()
         else:
             await update.message.reply_text(r["text"])
 
