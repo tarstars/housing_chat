@@ -26,8 +26,10 @@ python3 -m processor.process
 python3 -m bot.main
 ```
 
-Then message the bot in Telegram, e.g. "2-room flat in Kentron under 800$",
-or send a voice message.
+The bot is a conversational assistant: ask for listings, stats ("average price
+in Kentron"), comparisons, recommendations, or dataset info — text or voice, in
+any language. It remembers recent context per chat; `/clear` resets it.
+Interaction logs are written to `data/logs/interactions.jsonl` for analysis.
 
 ### Scraping volume & Cloudflare (important)
 
@@ -67,7 +69,7 @@ Tests can run without an editable install because pytest is configured with `pyt
 ## Notes
 
 - list.am is behind Cloudflare; the scraper uses a real Chromium via Playwright.
-- All AI is OpenAI: a chat model for query understanding, Whisper for STT.
+- All AI is OpenAI: a tool-calling agent (chat model) for query understanding and reasoning, Whisper for STT.
 - Scraper is card-level: it scrapes category pages (detail pages are Cloudflare-blocked).
 - Thumbnails are converted webp→JPEG (Pillow).
 - Re-running the scraper resumes (skips already-saved listing IDs).
