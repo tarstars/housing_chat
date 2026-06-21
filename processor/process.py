@@ -17,7 +17,7 @@ def raw_to_row(raw: dict) -> dict:
         "price": price, "currency": currency, "rooms": rooms, "area_sqm": area,
         "floor": floor, "total_floors": total,
         "district": normalize.extract_district(address), "address": address,
-        "description": raw.get("description"), "posted_at": raw.get("posted_text"),
+        "description": raw.get("description"), "posted_at": raw.get("posted_at"),
         "scraped_at": raw.get("scraped_at"),
     }
 

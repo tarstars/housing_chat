@@ -22,6 +22,7 @@ def test_is_complete_requires_price_and_size():
     assert process.is_complete({"price": 1, "rooms": 2}) is True
     assert process.is_complete({"price": None, "rooms": 2}) is False
     assert process.is_complete({"price": 1, "rooms": None, "area_sqm": None}) is False
+    assert process.is_complete({"price": 1, "rooms": None, "area_sqm": 65.0}) is True
 
 def test_process_raw_dir(tmp_path):
     (tmp_path / "1.json").write_text(json.dumps(RAW), encoding="utf-8")
