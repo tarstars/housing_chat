@@ -36,14 +36,15 @@ def _accumulate_usage(tel: dict, resp) -> None:
 
 
 def run(messages: list, conn, client, model: str, max_iters: int = 4) -> AgentResult:
+    messages = list(messages)
     tel = {"iterations": 0, "llm_calls": 0, "prompt_tokens": 0,
            "completion_tokens": 0, "total_tokens": 0, "tool_calls": [],
            "empty_search": False, "loop_exhausted": False}
     surfaced: list = []
     for i in range(max_iters):
-        tel["iterations"] = i + 1
         resp = client.chat.completions.create(
             model=model, messages=messages, tools=tools.TOOLS, tool_choice="auto")
+        tel["iterations"] = i + 1
         tel["llm_calls"] += 1
         _accumulate_usage(tel, resp)
         msg = resp.choices[0].message
