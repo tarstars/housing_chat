@@ -14,7 +14,7 @@ def parse_price(text: str) -> tuple[int | None, str | None]:
     currency = None
     if "$" in text or "USD" in upper:
         currency = "USD"
-    elif "֏" in text or "AMD" in upper or "ДРАМ" in upper or "ԴՐԱՄ" in text or "դրամ" in text:
+    elif "֏" in text or "AMD" in upper or "ԴՐԱՄ" in upper:
         currency = "AMD"
     digits = re.sub(r"[^\d]", "", text)
     amount = int(digits) if digits else None
