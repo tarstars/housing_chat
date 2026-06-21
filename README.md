@@ -16,8 +16,8 @@ cp .env.example .env   # then fill in OPENAI_API_KEY and TELEGRAM_BOT_TOKEN
 ## Pipeline (run locally, in order)
 
 ```bash
-# 1. Scrape a snapshot (run on your own machine — residential IP passes Cloudflare)
-MAX_LISTINGS=200 python3 -m scraper.crawl
+# 1. Scrape a snapshot
+MAX_LISTINGS=1000 python3 -m scraper.crawl
 
 # 2. Normalize raw JSON into data/housing.db
 python3 -m processor.process
@@ -28,6 +28,32 @@ python3 -m bot.main
 
 Then message the bot in Telegram, e.g. "2-room flat in Kentron under 800$",
 or send a voice message.
+
+### Scraping volume & Cloudflare (important)
+
+list.am is behind Cloudflare. A **headless** browser passes the challenge on
+the **first** category page but is blocked on sequential pagination (and on
+individual listing detail pages) — so headless yields only ~20 listings.
+
+To scrape a large snapshot, run on a machine **with a real display** and a
+**visible** browser, which passes the challenge on every page:
+
+```bash
+HEADLESS=0 MAX_LISTINGS=1000 python3 -m scraper.crawl
+python3 -m processor.process
+```
+
+A Chromium window opens and solves the challenge per page. Useful env knobs:
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `MAX_LISTINGS` | `200` | how many new listings to scrape |
+| `HEADLESS` | `1` | set `0` for a visible browser (needed for >1 page) |
+| `SCRAPE_DELAY` | `2.0` | seconds between category pages |
+
+The scraper resumes — re-running skips already-saved listing IDs, so you can
+stop and continue. After scraping on your desktop, either run the bot there, or
+copy `data/housing.db` (and `data/raw/photos/`) to wherever the bot runs.
 
 ## Tests
 

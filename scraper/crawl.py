@@ -20,6 +20,25 @@ def already_scraped(raw_dir: str, item_id: str) -> bool:
     return (Path(raw_dir) / f"{item_id}.json").exists()
 
 
+def _fetch_listing_page(page, url: str, attempts: int = 5) -> str:
+    """Fetch a category page, waiting for real listing cards to render.
+
+    list.am intermittently serves a Cloudflare interstitial before the cards
+    appear. Waiting for the ``a.h`` card selector lets the challenge resolve;
+    if it still has no cards, retry a few times before giving up.
+    """
+    html = ""
+    for _ in range(attempts):
+        try:
+            html = fetch_html(page, url, wait_selector="a.h", timeout=30000)
+        except Exception:
+            html = ""
+        if extract.collect_cards(html):
+            return html
+        page.wait_for_timeout(3000)
+    return html
+
+
 def download_thumbnail(context, url: str, dest_dir: str) -> str | None:
     Path(dest_dir).mkdir(parents=True, exist_ok=True)
     try:
@@ -42,7 +61,7 @@ def crawl(raw_dir: str, photos_dir: str, max_listings: int,
         for pno in range(1, max_pages + 1):
             if collected >= max_listings:
                 break
-            html = fetch_html(page, category_page_url(pno))
+            html = _fetch_listing_page(page, category_page_url(pno))
             cards = extract.collect_cards(html)
             if not cards:
                 break
@@ -71,7 +90,12 @@ def main() -> None:
     from common.config import load_config
     cfg = load_config()
     max_listings = int(os.environ.get("MAX_LISTINGS", "200"))
-    n = crawl(cfg.raw_dir, cfg.photos_dir, max_listings)
+    # Headless reliably gets only the first category page (Cloudflare blocks
+    # sequential pagination headless). Set HEADLESS=0 on a machine with a real
+    # display to open a visible browser that passes the challenge per page.
+    headless = os.environ.get("HEADLESS", "1").lower() not in ("0", "false", "no")
+    delay = float(os.environ.get("SCRAPE_DELAY", "2.0"))
+    n = crawl(cfg.raw_dir, cfg.photos_dir, max_listings, delay=delay, headless=headless)
     print(f"scraped {n} listings into {cfg.raw_dir}")
 
 
