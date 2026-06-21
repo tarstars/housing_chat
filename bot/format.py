@@ -1,10 +1,14 @@
 _CURRENCY_SIGN = {"AMD": "֏", "USD": "$"}
+_PERIOD_LABEL = {"daily": "day", "weekly": "week", "monthly": "month"}
 
 
 def format_listing(row: dict) -> str:
     price = row.get("price")
     sign = _CURRENCY_SIGN.get(row.get("currency"), row.get("currency") or "")
     price_str = f"{price:,} {sign}".strip() if price is not None else "price n/a"
+    label = _PERIOD_LABEL.get(row.get("period"))
+    if price is not None and label:
+        price_str += f" / {label}"
     parts = [f"🏠 {row.get('title') or 'Apartment'}", f"💰 {price_str}"]
     if row.get("rooms") is not None:
         parts.append(f"🛏 {row['rooms']} rooms")

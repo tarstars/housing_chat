@@ -14,6 +14,11 @@ def test_filters_build_parameterized_where():
     assert "ORDER BY price DESC" in sql
     assert params == [800, "USD", 2, "Kentron", 10]
 
+def test_period_filter():
+    sql, params = build_query(Filters(period="daily"), 5)
+    assert "period = ?" in sql
+    assert params == ["daily", 5]
+
 def test_area_bounds():
     f = Filters(min_area=50.0, max_area=90.0)
     sql, params = build_query(f, 5)

@@ -32,6 +32,15 @@ def _parse_at(at_text: str) -> dict:
     return attrs
 
 
+def _period(price_text: str) -> str:
+    t = (price_text or "").lower()
+    if "daily" in t:
+        return "daily"
+    if "weekly" in t:
+        return "weekly"
+    return "monthly"
+
+
 def extract_card(a) -> dict:
     iid = item_id(a.get("href", ""))
     price_el = a.select_one(".p")
@@ -45,11 +54,13 @@ def extract_card(a) -> dict:
         src = img_el.get("src") or img_el.get("data-src")
         if src:
             photo_urls.append(_abs(src))
+    price_text = price_el.get_text(" ", strip=True) if price_el else ""
     return {
         "id": iid,
         "url": f"{BASE}/en/item/{iid}",
         "title": title,
-        "price_text": price_el.get_text(" ", strip=True) if price_el else "",
+        "price_text": price_text,
+        "period": _period(price_text),
         "attributes": _parse_at(at_text),
         "address_text": at_text,
         "description": title,

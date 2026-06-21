@@ -14,7 +14,9 @@ def raw_to_row(raw: dict) -> dict:
     address = raw.get("address_text") or ""
     return {
         "id": raw["id"], "url": raw.get("url"), "title": raw.get("title"),
-        "price": price, "currency": currency, "rooms": rooms, "area_sqm": area,
+        "price": price, "currency": currency,
+        "period": raw.get("period") or "monthly",
+        "rooms": rooms, "area_sqm": area,
         "floor": floor, "total_floors": total,
         "district": normalize.extract_district(address), "address": address,
         "description": raw.get("description"), "posted_at": raw.get("posted_at"),

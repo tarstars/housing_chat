@@ -6,6 +6,7 @@ class Filters(BaseModel):
     min_price: Optional[int] = None
     max_price: Optional[int] = None
     currency: Optional[Literal["AMD", "USD"]] = None
+    period: Optional[Literal["monthly", "daily", "weekly"]] = None
     min_rooms: Optional[int] = None
     max_rooms: Optional[int] = None
     min_area: Optional[float] = None
@@ -31,6 +32,8 @@ def _where_clause(f: Filters) -> tuple[str, list]:
         clauses.append("price <= ?"); params.append(f.max_price)
     if f.currency:
         clauses.append("currency = ?"); params.append(f.currency)
+    if f.period:
+        clauses.append("period = ?"); params.append(f.period)
     if f.min_rooms is not None:
         clauses.append("rooms >= ?"); params.append(f.min_rooms)
     if f.max_rooms is not None:

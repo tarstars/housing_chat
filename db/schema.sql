@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS listings (
   title         TEXT,
   price         INTEGER,
   currency      TEXT,
+  period        TEXT,
   rooms         INTEGER,
   area_sqm      REAL,
   floor         INTEGER,

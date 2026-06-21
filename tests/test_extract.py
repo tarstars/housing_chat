@@ -7,6 +7,11 @@ def test_item_id():
     assert extract.item_id("/en/item/23742410?ld_src=2") == "23742410"
     assert extract.item_id("https://www.list.am/en/item/55?x=1") == "55"
 
+def test_period_from_price_text():
+    assert extract._period("32,000 ֏ daily") == "daily"
+    assert extract._period("300,000 ֏ monthly") == "monthly"
+    assert extract._period("") == "monthly"
+
 def test_parse_at():
     a = extract._parse_at("Arabkir, 8 rm., 600 sq.m., 8/10 floor")
     assert a["Rooms"] == "8"

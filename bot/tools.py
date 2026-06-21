@@ -11,9 +11,9 @@ _METRIC_SQL = {
     "max_area": "max(area_sqm)",
 }
 _SORTS = ("price_asc", "price_desc", "area_desc", "newest")
-_FILTER_KEYS = ("min_price", "max_price", "currency", "min_rooms",
+_FILTER_KEYS = ("min_price", "max_price", "currency", "period", "min_rooms",
                 "max_rooms", "min_area", "max_area", "district")
-_ROW_COLS = ("id", "price", "currency", "rooms", "area_sqm", "floor",
+_ROW_COLS = ("id", "price", "currency", "period", "rooms", "area_sqm", "floor",
              "total_floors", "district", "title", "url")
 
 
@@ -100,6 +100,7 @@ _FILTER_SCHEMA = {
     "properties": {
         "min_price": {"type": "integer"}, "max_price": {"type": "integer"},
         "currency": {"type": "string", "enum": ["AMD", "USD"]},
+        "period": {"type": "string", "enum": ["monthly", "daily", "weekly"]},
         "min_rooms": {"type": "integer"}, "max_rooms": {"type": "integer"},
         "min_area": {"type": "number"}, "max_area": {"type": "number"},
         "district": {"type": "string"},

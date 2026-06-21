@@ -4,7 +4,7 @@ from pathlib import Path
 SCHEMA = (Path(__file__).with_name("schema.sql")).read_text(encoding="utf-8")
 
 _COLUMNS = [
-    "id", "url", "title", "price", "currency", "rooms", "area_sqm",
+    "id", "url", "title", "price", "currency", "period", "rooms", "area_sqm",
     "floor", "total_floors", "district", "address", "description",
     "posted_at", "scraped_at",
 ]
