@@ -74,18 +74,30 @@ Three independent, separately-runnable stages joined by one SQLite file:
 
 ### `scraper/` — Playwright crawler (local, one-time)
 
+> **Update (2026-06-21, post-recon): card-level scraping.** Recon confirmed that
+> list.am's **category/listing pages pass Cloudflare headless**, but individual
+> **`/item/` detail pages trigger a harder managed challenge** that headless
+> Chromium cannot pass on a display-less server. The category cards, however,
+> already carry every field the structured-filter bot needs. So the scraper
+> works **at the category-card level only** — it never visits detail pages.
+
 - Open a browser context, pass the Cloudflare challenge once, reuse the context.
-- Walk the Yerevan rental category pages (pagination), collect listing URLs.
-- Visit each detail page; save **raw** output to `data/raw/<id>.json`
-  (extracted fields + photo URLs) and optionally raw HTML for re-parsing.
-- **Download up to ~5 photos per listing** to `data/raw/photos/<id>/` while the
-  browser context already holds a valid Cloudflare cookie. The bot later sends
-  these local files — it never hotlinks list.am image URLs (those sit behind the
-  same Cloudflare/CDN and are unreliable for Telegram to fetch).
-- Politeness & robustness: 1–2 concurrency, throttled delay between requests,
-  resumable (skip already-fetched IDs), checkpointed so a crash resumes rather
-  than restarts, and a configurable cap on total listings.
-- Output is **raw** — no normalization here. Keeps scraping and parsing
+- Walk the Yerevan rental category pages (path-based pagination:
+  `/en/category/56`, `/en/category/56/2`, …), reading one card per listing.
+- Each card (`a.h`) yields: id + url (`/en/item/<id>`), price (`.p`),
+  title/description (`.l`), an attribute string (`.at` =
+  "District, N rm., X sq.m., F/T floor"), and one thumbnail image. The scraper
+  maps these into the shared raw-JSON schema (so the processor is unchanged):
+  `price_text`, `attributes{Rooms, Floor area, Floor}`, `address_text` (the
+  `.at` string, which leads with the district), `title`, `photo_urls`.
+- **Download the card thumbnail** to `data/raw/photos/<id>/` through the browser
+  context (which holds the valid Cloudflare cookie), converting the `.webp` to
+  JPEG (Pillow) for Telegram compatibility. One thumbnail per listing. The bot
+  sends these local files — it never hotlinks list.am image URLs.
+- Politeness & robustness: single browser, throttled delay between page loads,
+  resumable (skip already-fetched IDs), and a configurable cap on total listings.
+- Output is **raw** — minimal parsing of the `.at` string into the attribute
+  keys; full normalization happens in the processor. Keeps scraping and parsing
   independently testable.
 
 ### `processor/` — normalize raw → structured rows (local, one-time)

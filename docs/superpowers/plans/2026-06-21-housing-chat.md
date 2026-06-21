@@ -1219,21 +1219,21 @@ git commit -m "feat: playwright fetch and recon fixture capture"
 
 ---
 
-### Task 10: Scraper extraction (HTML → raw schema)
+### Task 10: Scraper card extraction (category HTML → raw schema)
 
 **Files:**
 - Create: `scraper/extract.py`
 - Test: `tests/test_extract.py`
 
 **Interfaces:**
-- Consumes: `tests/fixtures/item_sample.html`, `tests/fixtures/category_sample.html` from Task 9.
+- Consumes: `tests/fixtures/category_sample.html` (real category page captured in Task 9).
 - Produces:
-  - `extract.collect_listing_urls(category_html: str) -> list[str]`
-  - `extract.next_page_url(category_html: str, current_url: str) -> str | None`
-  - `extract.item_id(url: str) -> str`
-  - `extract.extract_listing(html: str, url: str) -> dict` (returns the shared raw schema, minus `photo_paths`/`scraped_at` which the crawler adds)
+  - `extract.item_id(url) -> str`
+  - `extract.extract_card(a) -> dict` (a BeautifulSoup `<a class="h">` element → raw-listing dict)
+  - `extract.collect_cards(category_html: str) -> list[dict]` — one raw dict per card, matching the shared raw schema (minus `photo_paths`/`scraped_at`, which the crawler adds)
+  - `extract._parse_at(at_text: str) -> dict` (parses the `.at` string into `{Rooms, Floor area, Floor}`)
 
-The CSS selectors below are a starting point. The test asserts the **contract** (correct keys/types, id derived from URL, ≥1 item URL collected). Run it against the real captured fixture; where a selector yields empty/None, open `item_sample.html`, find the real class/structure, and adjust the selector until the contract test passes with sensible non-empty values. This is the normal red→green loop, not a placeholder.
+Confirmed card structure: `<a class="h" href="/en/item/<id>?...">` containing `<img src>` (thumbnail), `.p` (price text e.g. `2,100,000 ֏ monthly`), `.l` (title/desc), `.at` (`District, N rm., X sq.m., F/T floor`).
 
 - [ ] **Step 1: Write failing test `tests/test_extract.py`**
 
@@ -1243,31 +1243,33 @@ from scraper import extract
 
 FIX = Path(__file__).parent / "fixtures"
 
-def test_item_id_from_url():
-    assert extract.item_id("https://www.list.am/en/item/12345678") == "12345678"
+def test_item_id():
+    assert extract.item_id("/en/item/23742410?ld_src=2") == "23742410"
+    assert extract.item_id("https://www.list.am/en/item/55?x=1") == "55"
 
-def test_collect_listing_urls_from_category():
+def test_parse_at():
+    a = extract._parse_at("Arabkir, 8 rm., 600 sq.m., 8/10 floor")
+    assert a["Rooms"] == "8"
+    assert a["Floor area"].startswith("600")
+    assert a["Floor"].replace(" ", "") == "8/10"
+
+def test_collect_cards_from_real_fixture():
     html = (FIX / "category_sample.html").read_text(encoding="utf-8")
-    urls = extract.collect_listing_urls(html)
-    assert len(urls) >= 1
-    assert all("/item/" in u for u in urls)
-    assert len(urls) == len(set(urls))  # deduped
-
-def test_extract_listing_contract():
-    html = (FIX / "item_sample.html").read_text(encoding="utf-8")
-    url = "https://www.list.am/en/item/12345678"
-    raw = extract.extract_listing(html, url)
-    assert raw["id"] == "12345678"
-    assert raw["url"] == url
-    assert isinstance(raw["attributes"], dict)
-    assert isinstance(raw["photo_urls"], list)
-    # At least a title or a price must be recovered from a real page.
-    assert raw["title"] or raw["price_text"]
+    cards = extract.collect_cards(html)
+    assert len(cards) >= 5
+    ids = [c["id"] for c in cards]
+    assert len(ids) == len(set(ids))                       # deduped
+    assert all(c["url"].startswith("https://www.list.am/en/item/") for c in cards)
+    assert any(c["price_text"] for c in cards)
+    parsed = [c for c in cards
+              if c["attributes"].get("Rooms") and c["attributes"].get("Floor area")]
+    assert parsed, "expected at least one card with rooms and area parsed"
+    assert any(c["photo_urls"] and c["photo_urls"][0].startswith("https://") for c in cards)
 ```
 
 - [ ] **Step 2: Run test, verify it fails**
 
-Run: `pytest tests/test_extract.py -v`
+Run: `python3 -m pytest tests/test_extract.py -v`
 Expected: FAIL (`ModuleNotFoundError: scraper.extract`).
 
 - [ ] **Step 3: Write `scraper/extract.py`**
@@ -1282,111 +1284,105 @@ BASE = "https://www.list.am"
 
 def item_id(url: str) -> str:
     m = re.search(r"/item/(\d+)", url)
-    return m.group(1) if m else url.rstrip("/").split("/")[-1]
+    return m.group(1) if m else url.rstrip("/").split("/")[-1].split("?")[0]
 
 
-def _abs(href: str) -> str:
-    return BASE + href if href.startswith("/") else href
+def _abs(src: str) -> str:
+    if src.startswith("//"):
+        return "https:" + src
+    if src.startswith("/"):
+        return BASE + src
+    return src
 
 
-def collect_listing_urls(category_html: str) -> list[str]:
-    soup = BeautifulSoup(category_html, "lxml")
-    out, seen = [], set()
-    for a in soup.select("a[href*='/item/']"):
-        href = a.get("href")
-        if not href:
-            continue
-        url = _abs(href)
-        if url not in seen:
-            seen.add(url)
-            out.append(url)
-    return out
+def _parse_at(at_text: str) -> dict:
+    attrs: dict[str, str] = {}
+    m = re.search(r"(\d+)\s*rm", at_text)
+    if m:
+        attrs["Rooms"] = m.group(1)
+    m = re.search(r"([\d.,]+)\s*sq\.?\s*m", at_text)
+    if m:
+        attrs["Floor area"] = m.group(1)
+    m = re.search(r"(\d+\s*/\s*\d+)\s*floor", at_text)
+    if m:
+        attrs["Floor"] = m.group(1)
+    return attrs
 
 
-def next_page_url(category_html: str, current_url: str) -> str | None:
-    soup = BeautifulSoup(category_html, "lxml")
-    nxt = soup.select_one("a.next, a[rel='next'], .dlf a:last-child")
-    if nxt and nxt.get("href"):
-        return _abs(nxt["href"])
-    return None
-
-
-def extract_listing(html: str, url: str) -> dict:
-    soup = BeautifulSoup(html, "lxml")
-
-    title_el = soup.select_one("h1")
-    title = title_el.get_text(strip=True) if title_el else None
-
-    price_el = soup.select_one(".price, [itemprop='price'], .pr")
-    price_text = price_el.get_text(" ", strip=True) if price_el else ""
-
-    attributes: dict[str, str] = {}
-    for row in soup.select(".attr, .attributes .row, table.attr tr"):
-        label = row.select_one(".t, .label, td:first-child, dt")
-        value = row.select_one(".i, .value, td:last-child, dd")
-        if label and value:
-            key = label.get_text(strip=True)
-            if key:
-                attributes[key] = value.get_text(" ", strip=True)
-
-    addr_el = soup.select_one(".address, [itemprop='address'], .loc")
-    address_text = addr_el.get_text(" ", strip=True) if addr_el else None
-
-    desc_el = soup.select_one("[itemprop='description'], .body, .desc, #desc")
-    description = desc_el.get_text("\n", strip=True) if desc_el else None
-
-    photo_urls: list[str] = []
-    for img in soup.select(".images img, .gallery img, [itemprop='image']"):
-        src = img.get("src") or img.get("data-src") or img.get("content")
+def extract_card(a) -> dict:
+    iid = item_id(a.get("href", ""))
+    price_el = a.select_one(".p")
+    title_el = a.select_one(".l")
+    at_el = a.select_one(".at")
+    img_el = a.select_one("img")
+    at_text = at_el.get_text(" ", strip=True) if at_el else ""
+    title = title_el.get_text(" ", strip=True) if title_el else None
+    photo_urls = []
+    if img_el:
+        src = img_el.get("src") or img_el.get("data-src")
         if src:
-            photo_urls.append(_abs(src) if src.startswith("/") else src)
-
+            photo_urls.append(_abs(src))
     return {
-        "id": item_id(url),
-        "url": url,
+        "id": iid,
+        "url": f"{BASE}/en/item/{iid}",
         "title": title,
-        "price_text": price_text,
-        "attributes": attributes,
-        "address_text": address_text,
-        "description": description,
+        "price_text": price_el.get_text(" ", strip=True) if price_el else "",
+        "attributes": _parse_at(at_text),
+        "address_text": at_text,
+        "description": title,
         "photo_urls": photo_urls,
     }
+
+
+def collect_cards(category_html: str) -> list[dict]:
+    soup = BeautifulSoup(category_html, "lxml")
+    cards, seen = [], set()
+    for a in soup.select('a.h[href*="/item/"]'):
+        iid = item_id(a.get("href", ""))
+        if not iid or iid in seen:
+            continue
+        seen.add(iid)
+        cards.append(extract_card(a))
+    return cards
 ```
 
-- [ ] **Step 4: Run test against the real fixtures; tune selectors until green**
+- [ ] **Step 4: Run test, verify it passes**
 
-Run: `pytest tests/test_extract.py -v`
-Expected: PASS. If `collect_listing_urls` returns 0 or `extract_listing` yields empty title and price, open the captured fixtures, identify the real selectors, edit them in `extract.py`, and re-run until all three tests pass with non-empty values.
+Run: `python3 -m pytest tests/test_extract.py -v`
+Expected: PASS. The real fixture drives this; if a selector yields empty, inspect `tests/fixtures/category_sample.html` and adjust.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add scraper/extract.py tests/test_extract.py
-git commit -m "feat: scraper html extraction to raw schema"
+git commit -m "feat: card-level extraction from list.am category pages"
 ```
 
 ---
 
-### Task 11: Crawl driver + photo download + resume
+### Task 11: Card crawl driver + thumbnail download + resume (LIVE)
 
 **Files:**
 - Create: `scraper/crawl.py`
-- Test: `tests/test_crawl.py` (offline parts only)
+- Test: `tests/test_crawl.py` (offline helpers only)
 
 **Interfaces:**
-- Consumes: `scraper.browser`, `scraper.extract`.
+- Consumes: `scraper.browser` (browser_page, fetch_html), `scraper.extract` (collect_cards), `scraper.recon.CATEGORY_URL`, Pillow.
 - Produces:
-  - `download_photos(context, photo_urls: list[str], dest_dir: str, max_n: int = 5) -> list[str]`
-  - `crawl(category_url, raw_dir, photos_dir, max_listings, delay=2.0, headless=True) -> int`
-  - `main()` runnable via `python -m scraper.crawl`. Reads `MAX_LISTINGS` env (default 200).
+  - `category_page_url(page: int) -> str` (page 1 = CATEGORY_URL, page N = `f"{CATEGORY_URL}/{N}"`)
+  - `already_scraped(raw_dir, item_id) -> bool`
+  - `download_thumbnail(context, url, dest_dir) -> str | None` (fetch via `context.request.get`, convert webp→JPEG via Pillow, save as `0.jpg`)
+  - `crawl(raw_dir, photos_dir, max_listings, delay=2.0, headless=True, max_pages=200) -> int`
+  - `main()` (reads `MAX_LISTINGS` env, default 200)
 
-Resume: an item whose `<raw_dir>/<id>.json` already exists is skipped. Photos are fetched through the Playwright context (`context.request.get`) so they reuse the Cloudflare cookie.
+Pages paginate by path. The crawl writes one `data/raw/<id>.json` per card (the raw dict + `scraped_at` + `photo_paths`), resumes by skipping existing ids, and stops when a page yields no cards or the cap is hit.
 
 - [ ] **Step 1: Write failing test `tests/test_crawl.py`**
 
 ```python
-import json
+import io
 from pathlib import Path
+from PIL import Image
 from scraper import crawl
 
 class FakeResp:
@@ -1396,26 +1392,34 @@ class FakeResp:
     def body(self): return self._body
 
 class FakeContext:
-    def __init__(self): self.request = self
-    def get(self, url, timeout=20000):
-        return FakeResp(True, b"\xff\xd8\xff")  # minimal jpeg-ish bytes
+    def __init__(self, body): self.request = self; self._body = body
+    def get(self, url, timeout=20000): return FakeResp(True, self._body)
 
-def test_download_photos_limits_and_writes(tmp_path):
-    ctx = FakeContext()
-    urls = [f"http://x/{i}.jpg" for i in range(10)]
-    paths = crawl.download_photos(ctx, urls, str(tmp_path), max_n=3)
-    assert len(paths) == 3
-    assert all(Path(p).exists() for p in paths)
+def _png_bytes():
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), (255, 0, 0)).save(buf, "PNG")
+    return buf.getvalue()
 
-def test_should_skip_existing(tmp_path):
+def test_category_page_url():
+    assert crawl.category_page_url(1) == crawl.CATEGORY_URL
+    assert crawl.category_page_url(3) == crawl.CATEGORY_URL + "/3"
+
+def test_already_scraped(tmp_path):
     (tmp_path / "1.json").write_text("{}")
     assert crawl.already_scraped(str(tmp_path), "1") is True
     assert crawl.already_scraped(str(tmp_path), "2") is False
+
+def test_download_thumbnail_converts_to_jpeg(tmp_path):
+    ctx = FakeContext(_png_bytes())
+    p = crawl.download_thumbnail(ctx, "http://x/0.webp", str(tmp_path))
+    assert p is not None and Path(p).exists()
+    with Image.open(p) as im:
+        assert im.format == "JPEG"
 ```
 
 - [ ] **Step 2: Run test, verify it fails**
 
-Run: `pytest tests/test_crawl.py -v`
+Run: `python3 -m pytest tests/test_crawl.py -v`
 Expected: FAIL (`ModuleNotFoundError: scraper.crawl`).
 
 - [ ] **Step 3: Write `scraper/crawl.py`**
@@ -1425,66 +1429,76 @@ import json
 import os
 import time
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
+
+from PIL import Image
 
 from scraper.browser import browser_page, fetch_html
 from scraper import extract
+from scraper.recon import CATEGORY_URL
+
+
+def category_page_url(page: int) -> str:
+    return CATEGORY_URL if page <= 1 else f"{CATEGORY_URL}/{page}"
 
 
 def already_scraped(raw_dir: str, item_id: str) -> bool:
     return (Path(raw_dir) / f"{item_id}.json").exists()
 
 
-def download_photos(context, photo_urls: list[str], dest_dir: str,
-                    max_n: int = 5) -> list[str]:
+def download_thumbnail(context, url: str, dest_dir: str) -> str | None:
     Path(dest_dir).mkdir(parents=True, exist_ok=True)
-    paths: list[str] = []
-    for i, url in enumerate(photo_urls[:max_n]):
-        try:
-            resp = context.request.get(url, timeout=20000)
-            if resp.ok:
-                p = os.path.join(dest_dir, f"{i}.jpg")
-                Path(p).write_bytes(resp.body())
-                paths.append(p)
-        except Exception:
-            continue
-    return paths
+    try:
+        resp = context.request.get(url, timeout=20000)
+        if not resp.ok:
+            return None
+        out = os.path.join(dest_dir, "0.jpg")
+        with Image.open(BytesIO(resp.body())) as im:
+            im.convert("RGB").save(out, "JPEG", quality=85)
+        return out
+    except Exception:
+        return None
 
 
-def crawl(category_url: str, raw_dir: str, photos_dir: str, max_listings: int,
-          delay: float = 2.0, headless: bool = True) -> int:
+def crawl(raw_dir: str, photos_dir: str, max_listings: int,
+          delay: float = 2.0, headless: bool = True, max_pages: int = 200) -> int:
     Path(raw_dir).mkdir(parents=True, exist_ok=True)
     collected = 0
     with browser_page(headless=headless) as page:
-        url = category_url
-        while url and collected < max_listings:
-            html = fetch_html(page, url)
-            for item_url in extract.collect_listing_urls(html):
+        for pno in range(1, max_pages + 1):
+            if collected >= max_listings:
+                break
+            html = fetch_html(page, category_page_url(pno))
+            cards = extract.collect_cards(html)
+            if not cards:
+                break
+            for card in cards:
                 if collected >= max_listings:
                     break
-                item_id = extract.item_id(item_url)
-                if already_scraped(raw_dir, item_id):
+                iid = card["id"]
+                if already_scraped(raw_dir, iid):
                     continue
-                item_html = fetch_html(page, item_url)
-                raw = extract.extract_listing(item_html, item_url)
-                raw["scraped_at"] = datetime.now(timezone.utc).isoformat()
-                photo_dir = os.path.join(photos_dir, item_id)
-                raw["photo_paths"] = download_photos(
-                    page.context, raw.get("photo_urls", []), photo_dir)
-                (Path(raw_dir) / f"{item_id}.json").write_text(
-                    json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
+                card["scraped_at"] = datetime.now(timezone.utc).isoformat()
+                thumb_dir = os.path.join(photos_dir, iid)
+                paths = []
+                for u in card.get("photo_urls", []):
+                    p = download_thumbnail(page.context, u, thumb_dir)
+                    if p:
+                        paths.append(p)
+                card["photo_paths"] = paths
+                (Path(raw_dir) / f"{iid}.json").write_text(
+                    json.dumps(card, ensure_ascii=False, indent=2), encoding="utf-8")
                 collected += 1
-                time.sleep(delay)
-            url = extract.next_page_url(html, url)
+            time.sleep(delay)
     return collected
 
 
 def main() -> None:
     from common.config import load_config
-    from scraper.recon import CATEGORY_URL
     cfg = load_config()
     max_listings = int(os.environ.get("MAX_LISTINGS", "200"))
-    n = crawl(CATEGORY_URL, cfg.raw_dir, cfg.photos_dir, max_listings)
+    n = crawl(cfg.raw_dir, cfg.photos_dir, max_listings)
     print(f"scraped {n} listings into {cfg.raw_dir}")
 
 
@@ -1494,22 +1508,20 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run test, verify it passes**
 
-Run: `pytest tests/test_crawl.py -v`
-Expected: PASS (2 tests).
+Run: `python3 -m pytest tests/test_crawl.py -v`
+Expected: PASS (3 tests).
 
 - [ ] **Step 5: Live smoke run (small cap)**
 
-Run: `MAX_LISTINGS=5 python -m scraper.crawl`
-Expected: writes ~5 files under `data/raw/*.json`, each with non-empty `attributes`/`price_text` and downloaded photos under `data/raw/photos/<id>/`. Open one JSON to confirm fields look right. If empty, revisit Task 10 selectors.
+Run: `MAX_LISTINGS=5 python3 -m scraper.crawl`
+Expected: writes ~5 files under `data/raw/*.json`, each with non-empty `price_text`/`attributes` and a `data/raw/photos/<id>/0.jpg` thumbnail. Open one JSON to confirm. If empty, revisit Task 10 selectors against the fixture.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add scraper/crawl.py tests/test_crawl.py
-git commit -m "feat: crawl driver with photo download and resume"
+git commit -m "feat: card-level crawl driver with thumbnail download and resume"
 ```
-
----
 
 ### Task 12: README, .gitignore check, end-to-end integration test
 
