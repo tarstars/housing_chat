@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Python 3.11+.
+- Python 3.10+ (relaxed from 3.11 to match the deploy machine's Python 3.10.12; no 3.11-only features are used).
 - All AI via OpenAI only: chat model for query understanding, Whisper for STT.
 - Scrape the **English** locale of list.am (`/en/…`) so attribute labels are English.
 - Geographic scope: Yerevan rentals only. Listing type: apartments for rent.

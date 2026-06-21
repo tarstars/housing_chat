@@ -25,7 +25,7 @@ photos. Priority: efficient and quick to implement.
 | Bot framework | python-telegram-bot v21 (async, long polling) |
 | Scraper | Playwright (headless Chromium) |
 | Hosting | All local for now; bot host-agnostic via `.env` for easy VPS move later |
-| Language/runtime | Python 3.11+ |
+| Language/runtime | Python 3.10+ (deploy machine runs 3.10.12) |
 
 ### Out of scope (YAGNI)
 
