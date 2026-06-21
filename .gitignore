@@ -4,6 +4,7 @@
 # Data artifacts
 data/raw/
 data/housing.db
+data/logs/
 *.db
 
 # Python
