@@ -18,6 +18,12 @@ def connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+def connect_ro(db_path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
     conn.commit()
