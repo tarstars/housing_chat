@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 
 class Filters(BaseModel):
-    intent: Literal["search", "count"] = "search"
     min_price: Optional[int] = None
     max_price: Optional[int] = None
     currency: Optional[Literal["AMD", "USD"]] = None
@@ -52,6 +51,3 @@ def build_query(f: Filters, limit: int) -> tuple[str, list]:
     return (f"SELECT * FROM listings{where}{order} LIMIT ?", params + [limit])
 
 
-def build_count_query(f: Filters) -> tuple[str, list]:
-    where, params = _where_clause(f)
-    return (f"SELECT count(*) AS n FROM listings{where}", params)
