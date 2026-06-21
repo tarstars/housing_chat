@@ -19,3 +19,10 @@ def format_listing(row: dict) -> str:
 
 def format_no_results() -> str:
     return "No matching rentals found. Try relaxing the price, rooms, or area."
+
+
+def format_count(n: int, filtered: bool = False) -> str:
+    noun = "apartment listing" if n == 1 else "apartment listings"
+    if filtered:
+        return f"I have {n} {noun} matching your criteria."
+    return f"I currently have {n} {noun} in the database."

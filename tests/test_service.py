@@ -36,3 +36,18 @@ def test_answer_no_match_returns_empty():
     conn = database.connect(":memory:"); database.init_db(conn); seed(conn)
     client = FakeClient(Filters(max_price=100))
     assert service.answer("very cheap", conn, client, "gpt-4o-mini", 5) == []
+
+def test_answer_count_intent_returns_total():
+    conn = database.connect(":memory:"); database.init_db(conn); seed(conn)
+    client = FakeClient(Filters(intent="count"))
+    res = service.answer("how many apartments do you have?", conn, client, "gpt-4o-mini", 5)
+    assert len(res) == 1
+    assert res[0]["photos"] == []
+    assert "2" in res[0]["text"]            # seed has 2 listings
+
+def test_answer_count_intent_with_filter():
+    conn = database.connect(":memory:"); database.init_db(conn); seed(conn)
+    client = FakeClient(Filters(intent="count", district="Kentron"))
+    res = service.answer("how many in Kentron?", conn, client, "gpt-4o-mini", 5)
+    assert len(res) == 1 and res[0]["photos"] == []
+    assert "1" in res[0]["text"]            # only listing 1 is Kentron

@@ -1,4 +1,4 @@
-from bot.filters import Filters, build_query
+from bot.filters import Filters, build_query, build_count_query
 
 def test_empty_filters_select_all_default_sort():
     sql, params = build_query(Filters(), 5)
@@ -19,3 +19,19 @@ def test_area_bounds():
     sql, params = build_query(f, 5)
     assert "area_sqm >= ?" in sql and "area_sqm <= ?" in sql
     assert params == [50.0, 90.0, 5]
+
+def test_default_intent_is_search():
+    assert Filters().intent == "search"
+
+def test_build_count_query_no_filters():
+    sql, params = build_count_query(Filters())
+    assert "count(*)" in sql.lower()
+    assert "WHERE" not in sql and "ORDER BY" not in sql and "LIMIT" not in sql
+    assert params == []
+
+def test_build_count_query_with_filters():
+    sql, params = build_count_query(Filters(district="Kentron", min_rooms=2))
+    assert "count(*)" in sql.lower()
+    assert "district = ?" in sql and "rooms >= ?" in sql
+    assert "LIMIT" not in sql
+    assert params == [2, "Kentron"]

@@ -10,7 +10,11 @@ SYSTEM_PROMPT = (
     "`district` to EXACTLY ONE of these canonical English names: "
     + ", ".join(YEREVAN_DISTRICTS)
     + ". If none clearly matches, leave `district` null. Choose a "
-    "`sort` only if the user implies one (e.g. 'cheapest' -> price_asc)."
+    "`sort` only if the user implies one (e.g. 'cheapest' -> price_asc). "
+    "Set `intent` to 'count' when the user asks for a quantity or total "
+    "(e.g. 'how many apartments do you have?', 'how many in Kentron?'); "
+    "otherwise keep it 'search'. Even for a count, still extract any filters "
+    "the user mentions."
 )
 
 

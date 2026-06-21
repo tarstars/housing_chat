@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 
 class Filters(BaseModel):
+    intent: Literal["search", "count"] = "search"
     min_price: Optional[int] = None
     max_price: Optional[int] = None
     currency: Optional[Literal["AMD", "USD"]] = None
@@ -22,7 +23,7 @@ _SORT_SQL = {
 }
 
 
-def build_query(f: Filters, limit: int) -> tuple[str, list]:
+def _where_clause(f: Filters) -> tuple[str, list]:
     clauses: list[str] = []
     params: list = []
     if f.min_price is not None:
@@ -42,6 +43,15 @@ def build_query(f: Filters, limit: int) -> tuple[str, list]:
     if f.district:
         clauses.append("district = ?"); params.append(f.district)
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    return where, params
+
+
+def build_query(f: Filters, limit: int) -> tuple[str, list]:
+    where, params = _where_clause(f)
     order = " ORDER BY " + _SORT_SQL.get(f.sort or "price_asc", "price ASC")
-    params.append(limit)
-    return (f"SELECT * FROM listings{where}{order} LIMIT ?", params)
+    return (f"SELECT * FROM listings{where}{order} LIMIT ?", params + [limit])
+
+
+def build_count_query(f: Filters) -> tuple[str, list]:
+    where, params = _where_clause(f)
+    return (f"SELECT count(*) AS n FROM listings{where}", params)
