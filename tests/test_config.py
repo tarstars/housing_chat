@@ -11,3 +11,5 @@ def test_load_config_defaults(monkeypatch):
     assert cfg.log_dir == "data/logs"
     assert cfg.agent_max_iters == 4
     assert cfg.history_max_turns == 6
+    assert cfg.openai_timeout == 30.0
+    assert cfg.openai_max_retries == 3

@@ -18,6 +18,8 @@ class Config:
     log_dir: str
     agent_max_iters: int
     history_max_turns: int
+    openai_timeout: float
+    openai_max_retries: int
 
 
 def load_config() -> Config:
@@ -33,4 +35,6 @@ def load_config() -> Config:
         log_dir=os.environ.get("LOG_DIR", "data/logs"),
         agent_max_iters=int(os.environ.get("AGENT_MAX_ITERS", "4")),
         history_max_turns=int(os.environ.get("HISTORY_MAX_TURNS", "6")),
+        openai_timeout=float(os.environ.get("OPENAI_TIMEOUT", "30")),
+        openai_max_retries=int(os.environ.get("OPENAI_MAX_RETRIES", "3")),
     )

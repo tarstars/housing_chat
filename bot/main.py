@@ -3,7 +3,7 @@ import os
 import tempfile
 import time
 
-from openai import OpenAI
+from openai import APIConnectionError, APITimeoutError, OpenAI
 from telegram import InputMediaPhoto, Update
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler,
@@ -65,15 +65,20 @@ async def _handle(update, context, text: str, input_type: str) -> None:
     t0 = time.time()
     error = None
     result = None
+    fallback = "Sorry, something went wrong. Please try again."
     try:
         result = agent.run(messages, conn, data["client"], cfg.chat_model, cfg.agent_max_iters)
+    except (APITimeoutError, APIConnectionError) as e:
+        log.warning("openai transient error (after %s retries): %s", cfg.openai_max_retries, e)
+        error = str(e)
+        fallback = "The AI service is responding slowly right now — please try again in a moment."
     except Exception as e:
         log.exception("agent failed")
         error = str(e)
     latency_ms = int((time.time() - t0) * 1000)
 
     if error or result is None:
-        await update.message.reply_text("Sorry, something went wrong. Please try again.")
+        await update.message.reply_text(fallback)
         telemetry, surfaced_ids = {}, []
     else:
         if not result.text and not result.listings:
@@ -137,7 +142,9 @@ def main() -> None:
     app = Application.builder().token(cfg.telegram_bot_token).build()
     app.bot_data.update({
         "cfg": cfg, "conn": ro,
-        "client": OpenAI(api_key=cfg.openai_api_key),
+        "client": OpenAI(api_key=cfg.openai_api_key,
+                         timeout=cfg.openai_timeout,
+                         max_retries=cfg.openai_max_retries),
         "conv": Conversation(cfg.history_max_turns),
     })
     app.add_handler(CommandHandler("start", cmd_start))
